@@ -55,7 +55,7 @@ struct my_stream_sink: public log::stream_sink {
 
 protected:
     void format_location(std::ostream& out, log::source_location loc) override {
-	out << "FILE: " << loc.file << "; ";
+        out << "FILE: " << loc.file << "; ";
     }
 };
 

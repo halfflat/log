@@ -22,9 +22,9 @@ struct locked_ostream: std::ostream {
         return std::unique_lock<std::mutex>(*mex);
     }
 
+private:
     std::shared_ptr<std::mutex> mex;
 
-private:
     using tbl_type = std::unordered_map<std::streambuf*, std::weak_ptr<std::mutex>>;
     static tbl_type& mex_tbl() {
         static tbl_type tbl;
