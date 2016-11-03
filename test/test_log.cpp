@@ -16,6 +16,20 @@ TEST(log, source_location) {
     ASSERT_GT(later.line, here.line);
 }
 
+TEST(log, log_source_location) {
+    log::source_location save;
+    log::facility_manager mgr([&](const log::log_entry& e) { save = e.location; });
+
+    auto test = log::facility("test", mgr);
+    test << log::source_location{"fake.cpp", 37, "foo()"};
+    ASSERT_EQ(std::string("fake.cpp"), save.file);
+    ASSERT_EQ(37, save.line);
+    ASSERT_EQ(std::string("foo()"), save.func);
+
+    test(0) << log::source_location{"fake.cpp", 54, "foo()"};
+    ASSERT_EQ(54, save.line);
+}
+
 TEST(log, log_one) {
     std::string name, msg;
     int level;

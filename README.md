@@ -19,7 +19,7 @@ LOG("solver",1) << "This goes to the 'solver' facility."
 
 Customize handling of log records.
 ```
-log::sink(my_log_handler); // set default handler
+log::default_sink(my_log_handler); // set default handler
 log::sink("solver", my_other_log_handler); // set handler for 'solver'
 ```
 
@@ -45,7 +45,7 @@ solver << "A third message, omitting source location.";
 
 Some simple log handlers are included
 ```
-log::sink(log::file_sink("run.log", log::flush, log::no_source_location));
+log::sink(log::file_sink("run.log", log::flag::flush, log::flasg::noemitloc));
 ```
 and these can be extended by sub-classing.
 ```
@@ -54,7 +54,7 @@ struct my_stream_sink: public log::stream_sink {
     my_sink(Args&&... args): log::stream_sink(std::forward<Args>(args)...) {}
 
 protected:
-    void write_location(std::ostream& out, log::source_location loc) {
+    void format_location(std::ostream& out, log::source_location loc) override {
 	out << "FILE: " << loc.file << "; ";
     }
 };
@@ -101,7 +101,7 @@ the current source line is created by the macro `LOG_LOC`; this is
 added automatically when one of the logging macros (see below) is
 used to write an entry to the logging facility.
 ```
-logger << source_location("file.cc", 200, "foo()") << "with explicit line info.";
+logger << source_location{"file.cc", 200, "foo()"} << "with explicit line info.";
 logger << LOG_LOC << "with line info for this source line.";
 LOG(logger) << "line info included automatically.";
 ```
@@ -124,10 +124,11 @@ logging facility).
 
 `LOG(fac, n)` expands to
 ```
-if (auto p = ::log::log_test_proxy(::log::facility(fac)(n))) ; else p.stream << LOG_LOC`
+if (auto log_magic_reserved_temp_ = ::log::log_test_proxy(::log::facility(fac)(n))) ;
+else log_magic_reserved_temp_.stream << LOG_LOC
 ```
 Here `log::log_test_proxy` returns a wrapper which converts to false if and only if
-the wrapped stream is in a good state. (And `p` actually stands for `log_magic_reserved_temp_`.)
+the wrapped stream is in a good state.
 
 Two other macros correspond to the predefined streams `debug` and `assertion_failure`.
 `DEBUG(n)` is equivalent to `LOG(::log::debug, n)`, unless `LOG_NDEBUG` is defined,
@@ -142,11 +143,11 @@ unless `LOG_NASSERT` is defined, in which case it expands to a no-op.
 
 ## Default sinks
 
-A customizable sink object `log::simple_sink` will write log records to a supplied
+A customizable sink object `log::stream_sink` will write log records to a supplied
 stream, with behaviour governed by flags controlling whether to print source locations,
 or flush the stream after each record.
 
-`log::simple_sink` uses `log::locked_ostream` to coordinate access to streams shared
+`log::stream_sink` uses `log::locked_ostream` to coordinate access to streams shared
 across multiple sinks and to maintain independent formatting state.
 
 ## API
