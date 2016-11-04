@@ -108,13 +108,19 @@ protected:
     }
 };
 
-class file_sink: public stream_sink {
-    std::shared_ptr<std::fstream> file;
+class file_sink_base {
+protected:
+    std::shared_ptr<std::ofstream> file;
+    file_sink_base(const std::string& filepath):
+        file(std::make_shared<std::ofstream>(filepath)) {}
+};
+
+class file_sink: protected file_sink_base, public stream_sink {
 public:
     template <typename... Flag>
     explicit file_sink(const std::string& filepath, Flag... flags):
-        file(std::make_shared<std::fstream>(filepath)),
-        stream_sink(file->rdbuf(), flags...)
+        file_sink_base(filepath),
+        stream_sink(*file, flags...)
     {}
 };
 

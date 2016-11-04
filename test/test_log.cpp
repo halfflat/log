@@ -1,19 +1,70 @@
 #include "gtest.h"
 
 #include <chrono>
+#include <cstdio>
+#include <cstring>
 #include <string>
 #include <thread>
 #include <vector>
 
 #include <log/log.hpp>
 
+#define ASSERT_STRING_HAS(s, match)\
+ASSERT_NE(std::string::npos, std::string(s).find(match))
+
+#define EXPECT_STRING_HAS(s, match)\
+EXPECT_NE(std::string::npos, std::string(s).find(match))
+
+#define ASSERT_STRING_EQ(expect, value)\
+ASSERT_EQ(std::string(expect), std::string(value))
+
+#define EXPECT_STRING_EQ(expect, value)\
+EXPECT_EQ(std::string(expect), std::string(value))
+
+// tmpnam() would be fine, but cannot surpress linker warning.
+// modify as required if no `mkstemp` in stdlib
+struct temporary_file {
+    char* path;
+    int fd;
+
+    temporary_file(): path(nullptr), fd(-1) {
+        try {
+            const char *tmpenv = nullptr;
+            for (auto env: {"TMPDIR", "TMP", "TEMP", "TEMPDIR"}) {
+                if ((tmpenv = std::getenv(env))) break;
+            }
+
+            if (!tmpenv) tmpenv = "/tmp";
+
+            std::size_t pathlen = strlen(tmpenv)+8;
+            path = new char[pathlen];
+            snprintf(path, pathlen, "%s/XXXXXX", tmpenv);
+            fd = mkstemp(path);
+        }
+        catch (...) {
+            delete[] path;
+            throw;
+        }
+    }
+
+    operator bool() const {
+        return path!=nullptr && fd>=0;
+    }
+
+    ~temporary_file() {
+        delete[] path;
+        if (fd>-1) close(fd);
+    }
+};
+
 TEST(log, source_location) {
     log::source_location here = LOG_LOC;
-    ASSERT_NE(std::string::npos, std::string(here.file).find("test_log.cpp"));
-    ASSERT_GT(here.line, 0);
+    //ASSERT_NE(std::string::npos, std::string(here.file).find("test_log.cpp"));
+    EXPECT_STRING_HAS(here.file, "test_log.cpp");
+    EXPECT_GT(here.line, 0);
 
     log::source_location later = LOG_LOC;
-    ASSERT_GT(later.line, here.line);
+    EXPECT_GT(later.line, here.line);
 }
 
 TEST(log, log_source_location) {
@@ -22,12 +73,12 @@ TEST(log, log_source_location) {
 
     auto test = log::facility("test", mgr);
     test << log::source_location{"fake.cpp", 37, "foo()"};
-    ASSERT_EQ(std::string("fake.cpp"), save.file);
-    ASSERT_EQ(37, save.line);
-    ASSERT_EQ(std::string("foo()"), save.func);
+    EXPECT_STRING_EQ("fake.cpp", save.file);
+    EXPECT_EQ(37, save.line);
+    EXPECT_STRING_EQ("foo()", save.func);
 
     test(0) << log::source_location{"fake.cpp", 54, "foo()"};
-    ASSERT_EQ(54, save.line);
+    EXPECT_EQ(54, save.line);
 }
 
 TEST(log, log_one) {
@@ -53,25 +104,25 @@ TEST(log, log_one) {
     log::facility test("test", mgr);
 
     test << "hello";
-    ASSERT_EQ(name, "test");
-    ASSERT_EQ(level, 0);
-    ASSERT_EQ(msg, "hello");
-    ASSERT_EQ(which_sink, 1);
+    EXPECT_EQ(name, "test");
+    EXPECT_EQ(level, 0);
+    EXPECT_EQ(msg, "hello");
+    EXPECT_EQ(which_sink, 1);
 
     test(1) << "there"; // level too high
-    ASSERT_EQ(level, 0);
-    ASSERT_EQ(msg, "hello");
+    EXPECT_EQ(level, 0);
+    EXPECT_EQ(msg, "hello");
 
     test.level(3);
     test(1) << "there"; // level ok now
-    ASSERT_EQ(level, 1);
-    ASSERT_EQ(msg, "there");
+    EXPECT_EQ(level, 1);
+    EXPECT_EQ(msg, "there");
 
     test.sink(sink2);
     test(2) << "matey"; // level ok now
-    ASSERT_EQ(level, 2);
-    ASSERT_EQ(msg, "matey");
-    ASSERT_EQ(which_sink, 2);
+    EXPECT_EQ(level, 2);
+    EXPECT_EQ(msg, "matey");
+    EXPECT_EQ(which_sink, 2);
 }
 
 TEST(log, stream_sink) {
@@ -210,4 +261,22 @@ TEST(log, assert_death_test) {
         ASSERT(false) << "o no!";
     };
     EXPECT_DEATH(o_no(), "assertion_failure.*o no");
+}
+
+TEST(log, file_sink) {
+    temporary_file tmp;
+    ASSERT_TRUE(tmp);
+
+    log::log_entry entry = {"log", 1, log::no_source_location, "fancy message"};
+    {
+        log::file_sink sink(tmp.path);
+        sink(entry);
+    }
+
+    std::ifstream file(tmp.path);
+    std::string line;
+    getline(file, line);
+    file.close();
+
+    EXPECT_STRING_HAS(line, "fancy message");
 }
