@@ -104,24 +104,24 @@ TEST(log, log_one) {
     log::facility test("test", mgr);
 
     test << "hello";
-    EXPECT_EQ(name, "test");
+    EXPECT_STRING_EQ(name, "test");
     EXPECT_EQ(level, 0);
-    EXPECT_EQ(msg, "hello");
+    EXPECT_STRING_EQ(msg, "hello");
     EXPECT_EQ(which_sink, 1);
 
     test(1) << "there"; // level too high
     EXPECT_EQ(level, 0);
-    EXPECT_EQ(msg, "hello");
+    EXPECT_STRING_EQ(msg, "hello");
 
     test.level(3);
     test(1) << "there"; // level ok now
     EXPECT_EQ(level, 1);
-    EXPECT_EQ(msg, "there");
+    EXPECT_STRING_EQ(msg, "there");
 
     test.sink(sink2);
     test(2) << "matey"; // level ok now
     EXPECT_EQ(level, 2);
-    EXPECT_EQ(msg, "matey");
+    EXPECT_STRING_EQ(msg, "matey");
     EXPECT_EQ(which_sink, 2);
 }
 
@@ -136,14 +136,14 @@ TEST(log, stream_sink) {
     log::facility fooble("fooble", mgr);
 
     test << "quux" << 3;
-    ASSERT_NE(std::string::npos, ss.str().find("test"));
-    ASSERT_NE(std::string::npos, ss.str().find("quux3"));
+    ASSERT_STRING_HAS(ss.str(), "test");
+    ASSERT_STRING_HAS(ss.str(), "quux3");
 
     fooble << "xyzzy" << 8;
-    ASSERT_NE(std::string::npos, ss.str().find("test"));
-    ASSERT_NE(std::string::npos, ss.str().find("quux3"));
-    ASSERT_NE(std::string::npos, ss.str().find("fooble"));
-    ASSERT_NE(std::string::npos, ss.str().find("xyzzy8"));
+    ASSERT_STRING_HAS(ss.str(), "test");
+    ASSERT_STRING_HAS(ss.str(), "quux3");
+    ASSERT_STRING_HAS(ss.str(), "fooble");
+    ASSERT_STRING_HAS(ss.str(), "xyzzy8");
 }
 
 TEST(log, macro) {
@@ -154,16 +154,16 @@ TEST(log, macro) {
     log::level(1);
 
     LOG("foo", 0) << ++count;
-    EXPECT_EQ(message, "1");
+    EXPECT_STRING_EQ(message, "1");
     EXPECT_EQ(count, 1);
 
     // no side-effects
     LOG("foo", 2) << ++count;
-    EXPECT_EQ(message, "1");
+    EXPECT_STRING_EQ(message, "1");
     EXPECT_EQ(count, 1);
 
     LOG("foo", 1) << ++count;
-    EXPECT_EQ(message, "2");
+    EXPECT_STRING_EQ(message, "2");
     EXPECT_EQ(count, 2);
 }
 
@@ -175,10 +175,10 @@ TEST(log, global_log) {
     log::log.level(2);
 
     LOG(2) << "hello";
-    EXPECT_EQ(message, "hello");
+    EXPECT_STRING_EQ(message, "hello");
 
     LOG(3) << "there";
-    EXPECT_EQ(message, "hello");
+    EXPECT_STRING_EQ(message, "hello");
 
     log::log.sink(saved_sink);
 }
@@ -192,18 +192,18 @@ TEST(log, rename) {
     auto logger = log::facility("hoopy", mgr);
     logger.sink([&](const log::log_entry& e) { fac_name = e.name; });
     logger << "ding!";
-    EXPECT_EQ(fac_name, "hoopy");
-    EXPECT_EQ(std::string("hoopy"), logger.name());
+    EXPECT_STRING_EQ(fac_name, "hoopy");
+    EXPECT_STRING_EQ("hoopy", logger.name());
 
     logger.name("frood");
     logger << "ptang!";
-    EXPECT_EQ(fac_name, "frood");
-    EXPECT_EQ(std::string("frood"), logger.name());
+    EXPECT_STRING_EQ(fac_name, "frood");
+    EXPECT_STRING_EQ("frood", logger.name());
 
     fac_name = "";
     auto same = log::facility("frood", mgr);
     same << "freeow";
-    EXPECT_EQ(fac_name, "frood");
+    EXPECT_STRING_EQ(fac_name, "frood");
 }
 
 struct slow_stream_sink: public log::stream_sink {
